@@ -1,0 +1,23 @@
+name: gdro-env
+channels:
+  - gurobi
+  - defaults
+  - conda-forge
+dependencies:
+  - arrow-cpp=19.0.0
+  - clarabel=0.10.0
+  - cvxpy=1.7.2
+  - lightgbm=4.6.0
+  - matplotlib=3.10.0
+  - numpy=2.2.4
+  - numpy-base=2.2.4
+  - pandas=2.2.3
+  - pickleshare=0.7.5
+  - polars=1.27.1
+  - python=3.10.9
+  - scikit-learn=1.6.1
+  - scipy=1.15.2
+  - seaborn=0.13.2
+  - pip:
+      - pyarrow==19.0.1
+      - pycparser==2.22
