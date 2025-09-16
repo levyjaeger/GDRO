@@ -1,34 +1,29 @@
-#%%
 """
     author: jaegerl
-    created: 2025-09-08
+    created: 2025-08-08
     scope: simulations for concept shift
 """
 
 import numpy as np
 import pandas as pd
 import polars as pl
-import os
-import pickle as pk
 import sys
-import importlib
 import matplotlib.pyplot as plt
 from scipy.stats import norm
 import lightgbm as lgb
+from pathlib import Path
 
-sys.path.append("/Users/jaegerl/Documents/awesome_stuff/statistics_msc/fs25_master_thesis/analysis/01_code/")
+REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.append(str(REPO_ROOT / ""))
 import gdro.ICUdata as gdrodata
 import gdro.model as gdromodel
 import gdro.deploy as gdrodeploy
-
-os.chdir("/Users/jaegerl/Documents/awesome_stuff/statistics_msc/fs25_master_thesis/analysis/")
 
 
 """ 
     Simulation parameters
 """
 
-#%%
 # values of rho
 rhos = [0.1, 1, 10, 100]
 # values of k
@@ -89,7 +84,6 @@ lgbm_params = {
 rhomarkers = ["o", "s", "D", "^", "v", "P", "*", "X", "<", ">"]
 
 
-#%%
 """
     Generate source dataset
 """
@@ -118,9 +112,8 @@ yval = sourcedata["yval"]
 ytrain = sourcedata["ytrain"]
 
 
-#%%
 """
-Simulations for different angles phi
+    Simulations for different angles phi
 """
 
 losses_list_all = {}
@@ -129,7 +122,7 @@ for phi_name, phi in phi_list.items():
     
     # define the shifted beta coefficients
     betas_shifted = betas * np.cos(phi) + v * np.sin(phi)
-    # generate a test dataset with a distributional shift in the first continuous covariate
+    # generate a test dataset
     targetdata = gdromodel.simulate_gdro_data(
         n_obs=ntest,
         n_cat_features=ncatfeatures,
@@ -147,10 +140,10 @@ for phi_name, phi in phi_list.items():
     targetdata = gdromodel.preprocess_lgbm(
         targetdata["dataset"], outcome="outcome",
         )
-    # the guidance set does not need to be particularly large
+    # generate guidance set
     guidedata = targetdata["validation_data"]
     yguide = targetdata["yval"]
-    # we would like to have a rather large test set to reduce test loss variance
+    # generate test set
     testdata = targetdata["training_data"]
     ytest = targetdata["ytrain"]
 
@@ -180,11 +173,10 @@ for phi_name, phi in phi_list.items():
     plt.grid(True)
     plt.tight_layout()
     # save the plot
-    plt.savefig(os.path.join("05_simulations/01_concept_shift/figures", f"lgbm_loss_phi{phi_name}.png"))
+    plt.savefig(REPO_ROOT / "exploration" / "simulations" / f"concept_shift_lgbm_loss_phi{phi_name}.png", bbox_inches="tight", dpi=300)
     plt.clf()
 
     # compute guidance matrices
-    # introduce new variables first
     print("\nComputing guidance matrices...")
     trainingdata_grouped = trainingdata.with_columns(
         pl.when(pl.col("continuous__continuous_0") > 0)
@@ -265,7 +257,6 @@ for phi_name, phi in phi_list.items():
         for rho in rhos:
             models_rho = {}
             for guidance_name, guidance_matrix in guidance_matrices.items():
-                # create a GDRO object
                 gdro_object = gdromodel.GuidedDRO(
                     num_boost_round=n_rounds,
                     rho=rho,
@@ -282,12 +273,7 @@ for phi_name, phi in phi_list.items():
                     guide_matrix=guidance_matrix,
                     epsilon=0,
                     )
-                # put the model into the dictionary
                 models_rho[f"{guidance_name}"] = gdro_object
-                # save the model
-                print("Saving GDRO model...")
-                with open(os.path.join("05_simulations/01_concept_shift/models", f"model_phi{phi_name}_rho{rho}_k{k}_guidance{guidance_name}.pkl"), "wb") as f:
-                    pk.dump(gdro_object, f)
             models_k[f"{rho}"] = models_rho
         models_list[f"{k}"] = models_k
     # extract the losses from each model
@@ -331,8 +317,7 @@ for phi_name, phi in phi_list.items():
 # concatenate the dataframes
 losses_df_all = pd.concat(losses_list_all.values(), ignore_index=True)
  
-#%%
 # save the losses dataframe
-losses_df_all.to_csv("05_simulations/01_concept_shift/tables/losses_concept_shift.csv", index=False)
+losses_df_all.to_csv(REPO_ROOT / "results" / "tables" / "simulations" / "losses_concept_shift.csv", index=False)
 
-# %%
+

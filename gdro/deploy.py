@@ -1,7 +1,7 @@
 """
     author: jaegerl
     created: 2025-07-10
-    description: Functions for deploying guided DRO models on ICU data.
+    description: functions for deploying guided DRO models on ICU data.
 """
 
 # -----------------------
@@ -17,8 +17,11 @@ import contextlib
 from sklearn.metrics import roc_auc_score
 import io
 import os
+from pathlib import Path
 from . import ICUdata as gdrodata
 from . import model as gdromodel
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 # -----------------------
@@ -80,14 +83,12 @@ def fitgdroICU(
         "max_depth": 3,
         "verbose": -1,
         },
-    codebook_path: str = gdrodata.CODEBOOK_PATH,
-    datadir: str = "/Users/jaegerl/Documents/awesome_stuff/statistics_msc/fs25_master_thesis/analysis/02_data/02_data_input",
+    codebook_path: str = REPO_ROOT / "data" / "variables.tsv",
+    datadir: str = REPO_ROOT / "data",
     **kwargs,
     ):
     """
-    Run a GDRO experiment with different constraints on a source and a target dataset.
-    
-    This function fits a GDRO model on a training set using constraints derived from a specified guidance constraint set, and evaluates the model on a test set. It returns the fitted GDRO model object.
+    Run a GDRO analysis with different constraints on a source and a target dataset. This function fits a GDRO model on a training set using constraints derived from a specified guidance constraint set, and evaluates the model on a test set. It returns the fitted GDRO model object.
     
     Parameters
     ----------
@@ -103,10 +104,10 @@ def fitgdroICU(
         The rho parameter for GDRO, by default 0.1.
     k : int
         The k parameter for GDRO, by default 2 (chi-square divergence).
-    epsilon : float, optional
-        The soft constraint parameter for GDRO, by default 0 (no soft constraints).
     n_rounds : int, optional
         The number of boosting rounds for LightGBM, by default 500.
+    epsilon : float, optional
+        The soft constraint parameter for GDRO, by default 0 (no soft constraints).
     guides : dict, optional
         A dictionary specifying the guidance constraints to be used. Must contain keys `"quantile"`, `"avg"`, `"avg_cutoff"`. and `"avg_by_group"`, each mapping to a list of variable names for which the constraints should be computed. For `"avg_cutoff"`, the list must be one of 3-tuples, with the first entry denoting the variable whose cutoff is to be considered, the second entry indicating the cutoff value, and the third entry a Boolean indicating whether the constraining average refers to values above the cutoff. For `"avg_by_group"`, the list must be one of 2-tuples, with the first entry denoting the variable to be averaged and the second entry denoting the grouping variable. If not provided, no constraints are applied (default), and a standard DRO model is fitted.
     lgb_params : dict, optional
@@ -454,8 +455,8 @@ def eval_subgroup(
     outcome: str = "respiratory",
     subgroup: tuple = None,
     n_rounds: int = None,
-    datadir: str = "/Users/jaegerl/Documents/awesome_stuff/statistics_msc/fs25_master_thesis/analysis/02_data/02_data_input",
-    codebook_path: str = gdrodata.CODEBOOK_PATH,
+    datadir: str = REPO_ROOT / "data",
+    codebook_path: str = REPO_ROOT / "data" / "variables.tsv",
     other_columns: list[str] = None,
     ):
     """
@@ -478,7 +479,7 @@ def eval_subgroup(
     datadir : str, optional
         The directory where the datasets are stored.
     codebook_path : str, optional
-        The path to the codebook for the datasets. Default is `gdrodata.CODEBOOK_PATH`.
+        The path to the codebook for the datasets. Default is `REPO_ROOT / "data" / "variables.tsv"`.
     other_columns : list[str], optional
         A list of additional columns to be included in the evaluation dataset. Default is `None`, which means no additional columns are considered.
     
@@ -577,15 +578,15 @@ def plotgdroICU(
     gdromodels: list[gdromodel.GuidedDRO],
     guidenames: list[str],
     plotname: str,
-    modeldir: str = "03_models/",
-    plotdir: str = "04_figures/",
-    datadir: str = "/Users/jaegerl/Documents/awesome_stuff/statistics_msc/fs25_master_thesis/analysis/02_data/02_data_input",
+    modeldir: str = REPO_ROOT / "results" / "models",
+    plotdir: str = REPO_ROOT / "results" / "figures" / "icu",
+    datadir: str = REPO_ROOT / "data",
     gdrocolor: str = "black",
     simpledrocolor: str = "orange",
     simpledrolty: str = "-",
     lightgbmcolor: str = "blue",
     lightgbmlty: str = "--",
-    codebook_path: str = gdrodata.CODEBOOK_PATH,
+    codebook_path: str = REPO_ROOT / "data" / "variables.tsv",
     nonempty_columns: list[str] = ["mortality_at_24h", "sex", "age"],
     ):
     """
@@ -781,10 +782,10 @@ def plotgdroICUsubgroup(
     subgroupname: str,
     n_rounds: int = None,
     subgroup: tuple = None,
-    tabledir: str = "05_gdro/",
-    plotdir: str = "05_gdro/",
-    datadir: str = "/Users/jaegerl/Documents/awesome_stuff/statistics_msc/fs25_master_thesis/analysis/02_data/02_data_input",
-    codebook_path: str = gdrodata.CODEBOOK_PATH,
+    tabledir: str = REPO_ROOT / "results" / "tables" / "icu",
+    plotdir: str = REPO_ROOT / "results" / "figures" / "icu",
+    datadir: str = REPO_ROOT / "data",
+    codebook_path: str = REPO_ROOT / "data" / "variables.tsv",
     nonempty_columns: list[str] = None,
     ):
     
@@ -997,160 +998,3 @@ def plotgdroICUsubgroup(
         plt.savefig(f"{plotdir}subgroupeval_{source}to{target}_{subgroupname}_rho{rho}_k{k}_nrounds{n_rounds}_aurocs.png")
     
     return evaluations
-    
-def plotgdroICUlossrho(
-    source: str = "miiv", 
-    target: str = "eicu", 
-    outcome: str = "lactate",
-    k: int = 2, 
-    nrounds: int = 500,
-    figsize: tuple = (15, 10),
-    tabledir: str = "04_tables/",
-    savefig: bool = False,
-    plotdir: str = "05_icu_analyses/loss_vs_rho/",
-    ):
-    """
-    Create line plots for the model loss (or AUROC for binary classification tasks) versus log10(rho) for a given source, target, outcome, k and nrounds, with one line for each guidance constraint, and with simple LightGBM as a benchmark.
-    
-    Parameters
-    ----------
-    source : str
-        The source dataset.
-    target : str
-        The target dataset.
-    outcome : str
-        The outcome variable.
-    k : int 
-        The number of guidance constraints.
-    nrounds : int
-        The number of rounds for the LightGBM model.
-    figsize : tuple
-        The size of the figure as (width, height) in inches.
-    savefig : bool
-        Whether to save the figure.
-    tabledir : str
-        The path to the directory containing the model evaluation tables.
-    plotdir : str
-        The path to save the figure.
-        
-    Returns
-    -------
-    None
-        Displays the plots and optionally saves them to a file.
-    """
-    
-    # get the names of the model files
-    model_tables = [
-        f for f in os.listdir(f"{tabledir}/{source}to{target}_{outcome}") 
-        if f.startswith(f"subgroupeval_{source}to{target}") 
-        and f.endswith(".csv")
-        and "nrounds2" not in f
-        ] 
-    # load all tables into a dictionary
-    table_list = {}
-    for table_path in model_tables:
-        table = pd.read_csv(f"{tabledir}/{source}to{target}_{outcome}/" + table_path)
-        # extract the rho, k value and nrounds from the file name
-        rho_value = float(table_path.split("rho")[1].split("_")[0])
-        k_value = int(table_path.split("k")[1].split("_")[0])
-        nrounds_table = int(table_path.split("nrounds")[1].split(".csv")[0])
-        table_list[(rho_value, k_value, nrounds_table)] = table
-    # extract all tables with the relevant k and nrounds values
-    table_list_subset = {
-        rho: table for (rho, k_value, nrounds_table), table in table_list.items() 
-        if k_value == k and nrounds_table == nrounds
-        }
-    # merge all tables into a single dataframe, using an additional column for rho
-    merged_table = pd.DataFrame()
-    for rho, table in table_list_subset.items():
-        table["rho"] = rho  # add rho column
-        merged_table = pd.concat([merged_table, table], ignore_index=True) 
-    # sort the merged table by rho
-    merged_table.sort_values(by="rho", inplace=True)
-    # in the column guide, remove everything in parentheses
-    merged_table["guide"] = merged_table["guide"].str.replace(r" \(.*\)", "", regex=True).str.strip()
-    # define markers for the line plot
-    marker_styles = ['o', 's', 'D', '^', 'v', '<', '>', 'p', '*', 'X', 'h']
-    # get the unique guides excluding LightGBM and Simple DRO
-    guides = [g for g in merged_table["guide"].unique() if g != "LightGBM" and g != "Simple DRO"]
-    # mapping from guide to marker
-    marker_map = {g: marker_styles[i % len(marker_styles)] for i, g in enumerate(guides)}
-    
-    # make the two plots, one for Overall and one for the Subgroup
-    for population in ["Overall", "Subgroup"]:
-        plt.figure(figsize=figsize)
-        # lines for LightGBM and Simple DRO
-        lightgbm_subset = merged_table[
-            (merged_table["guide"] == "LightGBM") & 
-            (merged_table["population"] == population)]
-        simpledro_subset = merged_table[
-            (merged_table["guide"] == "Simple DRO") & 
-            (merged_table["population"] == population)]
-        plt.axhline(
-            y=lightgbm_subset["loss"].mean(), 
-            color='darkgray', label='ERM (LightGBM)', linestyle = "-.")
-        plt.plot(
-            np.log10(simpledro_subset["rho"]),
-            simpledro_subset["loss"],
-            label="No guidance", color='black', linestyle='--')   
-        for guide in guides:
-            subset = merged_table[
-                (merged_table["guide"] == guide) & 
-                (merged_table["population"] == population)]
-            plt.plot(
-                np.log10(subset["rho"]), 
-                subset["loss"], label=guide, 
-                marker=marker_map[guide])
-        plt.xlabel(r"$\rho$" + r" ($\log_{10}$ scale)")
-        plt.xticks(
-            np.log10(merged_table["rho"].unique()), 
-            [f"{rho:.2f}" for rho in merged_table["rho"].unique()])
-        if outcome in ["creatinine", "lactate"]:
-            plt.ylabel("MSE" + f" ({population})")
-        else:
-            plt.ylabel("Binary Log Loss" + f" ({population})")
-        plt.title(f"Source: {DATASETS[source]}, Target: {DATASETS[target]},\nOutcome: {OUTCOME_NAMES[outcome]}\n" + r"$k =$" + f"{k_value}, nrounds={nrounds}")
-        # put legend outside the plot
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-        plt.grid()
-        plt.tight_layout()
-        if savefig:
-            plt.savefig(f"{plotdir}/lossvsrho_{source}to{target}_{outcome}_{population}_k{k_value}_nrounds{nrounds}.png")
-    # do the same for auroc values if any of the values is not NaN
-    if any(merged_table["auroc"].notna()):
-        for population in ["Overall", "Subgroup"]:
-            plt.figure(figsize=figsize)
-            # lines for LightGBM and Simple DRO
-            lightgbm_subset = merged_table[
-                (merged_table["guide"] == "LightGBM") & 
-                (merged_table["population"] == population)]
-            simpledro_subset = merged_table[
-                (merged_table["guide"] == "No guidance") & 
-                (merged_table["population"] == population)]
-            plt.axhline(
-                y=lightgbm_subset["auroc"].mean(), 
-                color='darkgray', label='ERM (LightGBM)', linestyle = "-.")
-            plt.plot(
-                np.log10(simpledro_subset["rho"]),
-                simpledro_subset["auroc"],
-                label="Simple DRO", color='black', linestyle='--')   
-            for guide in guides:
-                subset = merged_table[
-                    (merged_table["guide"] == guide) & 
-                    (merged_table["population"] == population)]
-                plt.plot(
-                    np.log10(subset["rho"]), 
-                    subset["auroc"], label=guide, 
-                    marker=marker_map[guide])
-            plt.xlabel(r"$\rho$" + r" ($\log_{10}$ scale)")
-            plt.xticks(
-                np.log10(merged_table["rho"].unique()), 
-                [f"{rho:.2f}" for rho in merged_table["rho"].unique()])
-            plt.ylabel(f"AUROC ({population})")
-            plt.title(f"Source: {DATASETS[source]}, Target: {DATASETS[target]},\nOutcome: {OUTCOME_NAMES[outcome]}\n" + r"$k =$" + f"{k_value}, nrounds={nrounds}")
-            # put the legend outside the plot
-            plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-            plt.grid()
-            plt.tight_layout()
-            if savefig:
-                plt.savefig(f"{plotdir}/aurocvsrho_{source}to{target}_{outcome}_{population}_k{k_value}_nrounds{nrounds}.png")

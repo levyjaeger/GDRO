@@ -1,33 +1,28 @@
-#%%
 """
     author: jaegerl
-    created: 2025-09-15
+    created: 2025-08-15
     scope: simulations for minority group
 """
 
 import numpy as np
 import pandas as pd
 import polars as pl
-import os
 import pickle as pk
 import sys
 import importlib
 import matplotlib.pyplot as plt
 from scipy.stats import norm
 import lightgbm as lgb
+from pathlib import Path
 
-sys.path.append("/Users/jaegerl/Documents/awesome_stuff/statistics_msc/fs25_master_thesis/analysis/01_code/")
-import gdro.ICUdata as gdrodata
+REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.append(str(REPO_ROOT / ""))
 import gdro.model as gdromodel
-import gdro.deploy as gdrodeploy
-
-os.chdir("/Users/jaegerl/Documents/awesome_stuff/statistics_msc/fs25_master_thesis/analysis/")
 
 
-#%%
+
 """
-Hard minority group
-
+    Hard minority group
 """
 
 # reproducibility
@@ -60,16 +55,14 @@ ntest = 10000
 # standard deviation of noise term
 sigma = .1
 
-# sample the beta coefficients for the linear model
-# betas = np.random.normal(size=ncontfeatures + ncatfeatures)
-# betas = betas / np.linalg.norm(betas)
+# define the coefficients
 betas = np.array([1, 0.1])
 betas_shifted = np.array([1, 2])
 
 
-#%%
+
 """
-Run simulations for different minority group prevalences
+    Run simulations for different minority group prevalences
 """
 
 importlib.reload(gdromodel)
@@ -218,7 +211,7 @@ for propshift in prop_list:
     plt.title(f"LightGBM test losses, minority group prevalence {propshift}")
     plt.legend()
     plt.grid()
-    plt.savefig(f"05_simulations/03_hard_subgroup/figures/lgbm_losses_prop{propshift}.png", bbox_inches="tight")
+    plt.savefig(REPO_ROOT / "exploration" / "simulations" / f"minority_group_lgbm_losses_prop{propshift}.png", bbox_inches="tight", dpi=300)
     
     # build guidance matrices
     trainingdata_grouped = trainingdata.with_columns(
@@ -278,10 +271,6 @@ for propshift in prop_list:
                     )
                 # put the model into the dictionary
                 models_rho[f"{guidance_name}"] = gdro_object
-                # save the model
-                print("Saving GDRO model...")
-                with open(os.path.join("05_simulations/03_hard_subgroup/models", f"model_rho{rho}_k{k}_guidance{guidance_name}.pkl"), "wb") as f:
-                    pk.dump(gdro_object, f)
             models_k[f"{rho}"] = models_rho
         models_list[f"{k}"] = models_k
     # extract overall and subgroup losses from the fitted models
@@ -363,14 +352,14 @@ for propshift in prop_list:
         )
     weights_list[f"{propshift}"] = weights_df
 
-#%%
+
 # turn losses_list into a dataframe by concatenating the dataframes and adding a column for the shifting proportion
 losses_df_all = pd.concat(
     [losses_list[prop].assign(prop_shift=prop) for prop in losses_list.keys()],
     ignore_index=True
     )
 # store the dataframe as a csv file
-losses_df_all.to_csv("05_simulations/03_hard_subgroup/tables/losses_hard_subgroup.csv", index=False)
+losses_df_all.to_csv(REPO_ROOT / "results" / "tables" / "simulations" / "losses_hard_subgroup.csv", index=False)
 
 
 # turn weights_list into a dataframe
@@ -379,6 +368,6 @@ weights_df = pd.concat(
     ignore_index=True
     )
 # store the dataframe as a csv file
-weights_df.to_csv("05_simulations/03_hard_subgroup/tables/weights_hard_subgroup.csv", index=False)
+weights_df.to_csv(REPO_ROOT / "results" / "tables" / "simulations" / "weights_hard_subgroup.csv", index=False)
 
-# %%
+

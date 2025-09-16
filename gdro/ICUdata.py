@@ -2,6 +2,8 @@
     author: jaegerl
     created: 2025-07-10
     description: Functions for loading and preprocessing ICU data.
+    most of the code in this file is adapted from https://github.com/eth-mds/icu-features
+    
 """
 
 # -----------------------
@@ -12,6 +14,9 @@ import polars as pl
 import numpy as np
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OrdinalEncoder
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 # -----------------------
 # Variable Definitions
@@ -176,7 +181,7 @@ CATEGORICAL_FEATURES = ["mode", "num_nonmissing"]
 TREATMENT_INDICATOR_FEATURES = ["num", "any"]
 TREATMENT_CONTINUOUS_FEATURES = ["rate"]
 CAT_MISSING_NAME = "(MISSING)"
-CODEBOOK_PATH =  "/Users/jaegerl/Documents/awesome_stuff/statistics_msc/fs25_master_thesis/analysis/02_data/02_data_input/variables.tsv"
+CODEBOOK_PATH =  REPO_ROOT / "data" / "variables.tsv"
 
 
 # -----------------------
@@ -196,8 +201,6 @@ def get_features(
         The type of outcome to be predicted. Must be either of `"circulatory"`, "`respiratory"`, `"renal"`, `"mortality"`, `"lactate"`, or `"creatinine"`. Defaults to `"respiratory"`.
     codebook_path : str
         The path to the codebook file. Defaults to `CODEBOOK_PATH`.
-    apacheii : bool, optional
-        If `True`, the Apache II score at admission will be included in the features. Defaults to `False`.
         
     Returns
     -------
@@ -260,7 +263,7 @@ def get_features(
 
 
 def load_icudata(
-    datadir: str = "/Users/jaegerl/Documents/awesome_stuff/statistics_msc/fs25_master_thesis/analysis/02_data/02_data_input",
+    datadir: str = REPO_ROOT / "data",
     dataset: str = "eicu",
     outcome: str = "respiratory",
     subset: list[str] = ["train"],
@@ -561,9 +564,3 @@ def load_icudata(
         output_data["apache_ii"] = apacheii_calculated
     
     return output_data
-
-
-# -----------------------
-# Plotting
-# -----------------------
-

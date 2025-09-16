@@ -1,33 +1,23 @@
 """
     author: jaegerl
-    created: 2025-09-10
+    created: 2025-08-10
     scope: figures for concept shift simulation
 """
 
 import numpy as np
 import pandas as pd
 import polars as pl
-import os
-import pickle as pk
-import sys
-import importlib
 import matplotlib.pyplot as plt
-from scipy.stats import norm
-import lightgbm as lgb
 import seaborn as sns
 import matplotlib.lines as mlines
+from pathlib import Path
 
-sys.path.append("/Users/jaegerl/Documents/awesome_stuff/statistics_msc/fs25_master_thesis/analysis/01_code/")
-import gdro.ICUdata as gdrodata
-import gdro.model as gdromodel
-import gdro.deploy as gdrodeploy
-
-os.chdir("/Users/jaegerl/Documents/awesome_stuff/statistics_msc/fs25_master_thesis/analysis/")
-
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 print("drawing panel of losses for concept shift simulation...")
+
 # load the losses dataframe
-losses_df = pl.read_csv("05_simulations/01_concept_shift/tables/losses_concept_shift.csv")
+losses_df = pl.read_csv(REPO_ROOT / "results/tables/simulations/losses_concept_shift.csv")
 
 guidance_names = {
     "ERM (LightGBM)": "ERM (LightGBM)",
@@ -38,7 +28,7 @@ guidance_names = {
 }
 
 # directory where to save the plots
-plotdir = "05_simulations/01_concept_shift/figures/"
+plotdir = REPO_ROOT / "results/figures/simulations/"
 
 # data for plots
 k_order = sorted(losses_df.filter(pl.col("k").is_not_null())["k"].unique().to_list())

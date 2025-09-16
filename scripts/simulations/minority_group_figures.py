@@ -8,25 +8,22 @@ import numpy as np
 import pandas as pd
 import polars as pl
 import os
-import pickle as pk
-import sys
-import importlib
 import matplotlib.pyplot as plt
 from scipy.stats import norm
-import lightgbm as lgb
 import seaborn as sns
 import matplotlib.lines as mlines
+from pathlib import Path
 
-os.chdir("/Users/jaegerl/Documents/awesome_stuff/statistics_msc/fs25_master_thesis/analysis/")
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 """
-Losses versus rho panel
+    Losses versus rho panel
 """
 
 print("drawing panel of losses for minority group simulation...")
 # load the losses dataframe
-losses_df = pl.read_csv("05_simulations/03_hard_subgroup/tables/losses_hard_subgroup.csv")
+losses_df = pl.read_csv(REPO_ROOT / "results"/ "tables"/ "simulations" / "losses_hard_subgroup.csv")
 
 # replace "Simple DRO" with "No guidance" in the "guidance column"
 losses_df = losses_df.with_columns([
@@ -37,7 +34,7 @@ losses_df = losses_df.with_columns([
 ])
 
 # directory where to save the plots
-plotdir = "05_simulations/03_hard_subgroup/figures/"
+plotdir = REPO_ROOT / "results" / "figures" / "simulations"
 
 # data for plots
 k_order = sorted(losses_df.filter(pl.col("k").is_not_null())["k"].unique().to_list())
@@ -147,17 +144,17 @@ plt.tight_layout()
 g.fig.subplots_adjust(bottom=0.08,top=0.95)
 
 # save figure
-plt.savefig(plotdir + f"minority_group_losses.png", bbox_inches="tight", dpi=300)
+plt.savefig(plotdir / "minority_group_losses.png", bbox_inches="tight", dpi=300)
 
 
 """
-Distribution of weights
+    Distribution of weights
 """
 
 print("drawing panel of weights for minority group simulation...")
 
 # load weights dataframe
-weights_df = pl.read_csv("05_simulations/03_hard_subgroup/tables/weights_hard_subgroup.csv")
+weights_df = pl.read_csv(REPO_ROOT / "results/tables/simulations/weights_hard_subgroup.csv")
 
 # select k=2, prop_shift=0.1, rho in {0.01, 1, 10} as an example
 weights_subset = weights_df.filter(
@@ -215,4 +212,4 @@ plt.tight_layout()
 g.fig.subplots_adjust(bottom=0.2, top=0.9)
 
 # save figure
-plt.savefig(plotdir + "minority_group_weights.png", bbox_inches="tight", dpi=300)
+plt.savefig(plotdir / "minority_group_weights.png", bbox_inches="tight", dpi=300)

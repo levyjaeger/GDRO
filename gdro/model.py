@@ -1,10 +1,7 @@
 """
     author: jaegerl
     created: 2025-07-10
-    description: GuidedDRO modeling class and methods for fitting and prediction of guided distributionally robust optimization models using LightGBM. Also includes functions for data preprocessing, simulation, and utility functions.
-    modified: 2025-07-12
-    - modified constr_avg to handle categorical variables with more than two levels
-    - modified constr_avg_by_group to only consider grouping levels that are also present in the source dataset
+    scope: implementation of guided DRO
 """
 
 # -----------------------
@@ -202,7 +199,7 @@ def constr_avg_cutoff(
         The cutoff value for the variable.
     above : bool, optional
         If `True`, the constraint is for values above the cutoff. If `False`, the constraint is for values below the cutoff. Default is `True`.
-    normalized : bool, optional
+    normalize : bool, optional
         If `True`, the constraint vector is normalized to have a standard deviation of 1. Default is `True`.
     
     Returns
@@ -327,10 +324,10 @@ def constr_avg_by_group(
         Source dataset containing the group feature and outcome.
     target : polars.DataFrame
         Target dataset containing the group feature and outcome. 
-    outcome : str
-        Name of the outcome column in the source and target datasets.
+    variable : str
+        Name of the grouped variable in the source and target datasets.
     group : str
-        Name of the group column in the source and target datasets.
+        Name of the grouping variable in the source and target datasets.
     normalize : bool, optional
         If `True`, the constraint matrix is normalized so that each of its rows has a standard deviation of 1. Default is `True`.
         
@@ -505,6 +502,9 @@ class GuidedDRO:
         solver: str = "CLARABEL",
         solver_params: dict = {
             # see https://clarabel.org/stable/api_settings/
+            # these correspond to full accuracy settings. some models may therefore give rise to warnings
+            # about accuracy during fitting. we deemed these warnings acceptable since weight trajectories
+            # are mostly stable.
             "max_iter": 5000,
             "tol_gap_abs": 1e-8,
             "tol_gap_rel": 1e-8,
@@ -524,16 +524,16 @@ class GuidedDRO:
         ----------
         num_boost_round : int
             Number of boosting rounds for LightGBM. Default is 100.
-        upd_period : int
-            Period of updating the weights in the optimization problem. Default is 1, meaning weights are updated every iteration.
         rho : float
             Regularization parameter for the DRO optimization problem. Default is 0.1.
         k : int
             The order of the Cressie-Read divergence family to use in the optimization problem. Default is 2, which corresponds to the chi-squared divergence.
+        upd_period : int
+            Period of updating the weights in the optimization problem. Default is 1, meaning weights are updated every iteration.
         lgbm_params : dict
             Parameters for LightGBM training. Default is a dictionary with "objective" set to "binary".
         solver : str
-            The solver to use for the cvxpy optimization problem. Options are "SCS", "ECOS", "CVXOPT", and "CLARABEL". Default is "CLARABEL".
+            The solver to use for the cvxpy optimization problem. Options are `"SCS"`, `"ECOS"`, `"CVXOPT"`, and `"CLARABEL"`. Default is `"CLARABEL"`.
         solver_params : dict
             Parameters for the cvxpy solver. Default is a dictionary with parameters suitable for CLARABEL.
         verbose_weights : bool
@@ -608,18 +608,18 @@ class GuidedDRO:
             Training dataset features.
         y : np.ndarray
             Training dataset labels.
+        guide_matrix : np.ndarray, optional
+            A matrix defining the constraints for the DRO optimization problem. If None, no constraints are applied.
+        epsilon : float, optional
+            Soft constraint parameter for the guidance matrix. Must be non-negative. Defaults to 0, meaning no soft constraints are applied. Ignored if guide_matrix is None.
         eval_metrics : bool
             Whether to evaluate metrics on a validation dataset. If True, Xval and yval must be provided.
         Xval : pl.DataFrame, optional
             Validation dataset features. Required if eval_metrics is True.
         yval : np.ndarray, optional
             Validation dataset labels. Required if eval_metrics is True.
-        guide_matrix : np.ndarray, optional
-            A matrix defining the constraints for the DRO optimization problem. If None, no constraints are applied.
         early_stopping_round : int, optional
-            Number of rounds for early stopping based on validation AUROC. If 0, no early stopping is applied.
-        epsilon : float, optional
-            Soft constraint parameter for the guidance matrix. Must be non-negative. Defaults to 0, meaning no soft constraints are applied. Ignored if guide_matrix is None.
+            Number of rounds for early stopping based on validation AUROC. If 0, no early stopping is applied. EXPERIMENTAL.
         rhosmooth : bool, optional
             Whether to linearly increase the rho parameter from 0 to the value specified in `rho` within the first `rho_nsmooth` iterations. Defaults to False.
         rho_nsmooth : int, optional
@@ -681,7 +681,7 @@ class GuidedDRO:
             raise ValueError(f"Unknown solver '{self.solver}'. Available solvers: {list(solver_mapping.keys())}")
         solver_constant = solver_mapping[self.solver]
         
-        # make dataset Arrow-compatible
+        # make dataset arrow-compatible for lightgbm
         X_arrow = X.to_arrow()
         X_columns = X.columns
         if Xval is not None:
@@ -958,6 +958,7 @@ class GuidedDRO:
         with open(f"{dir_name}{file_name}.pkl", "wb") as f:
             pk.dump(self, f)
     
+    
     def eff_sample_size(
         self,
         ):
@@ -1047,6 +1048,8 @@ def simulate_gdro_data(
     -------
     X : pl.DataFrame
         Simulated dataset as a Polars DataFrame with features and outcome variable.
+    betas : np.ndarray
+        Regression coefficients used in the simulation.
         
     Raises
     ------
@@ -1135,7 +1138,6 @@ def test_gdro_simulation(
     trace_losses: bool = True,
     early_stopping_round: int = 50,
     n_weightsamples: int = 20,
-    dirname = "03_tests/00_gdro_tests",
     **kwargs
     ):
     """ Test the GuidedDRO implementation on a simulated dataset.
@@ -1156,12 +1158,14 @@ def test_gdro_simulation(
         The solver to use for the cvxpy optimization problem in the GuidedDRO model. Options are "SCS", "ECOS", "CVXOPT", and "CLARABEL". Default is "CLARABEL".
     verbose_weights : bool
         Whether to print a summary of the weights after each iteration.
+    trace_weights : bool
+        Whether to trace and store the weights at each iteration.
+    trace_losses : bool
+        Whether to trace and store the training losses at each iteration.
     early_stopping_round : int
         Number of rounds for early stopping based on validation AUROC. If 0, no early stopping is applied.
     n_weightsamples : int
         Number of random rows to sample for plotting weight traces.
-    dirname : str
-        Directory to save the plots and model files. Default is "03_tests/00_gdro_tests".
     **kwargs : dict
         Additional keyword arguments for the `simulate_gdro_data` function.
         
@@ -1246,7 +1250,7 @@ def test_gdro_simulation(
         plt.tight_layout()
         plt.grid()
         plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-        plt.savefig(f"{dirname}/sim_{plotinfo}_comparetrain.png", bbox_inches="tight")
+        plt.show()
     elif lgbm_params["objective"] == "binary":
         fig, axes = plt.subplots(1, 2, figsize=(16, 6))
         # binary logloss
@@ -1266,8 +1270,7 @@ def test_gdro_simulation(
         axes[1].grid()
         axes[1].legend(loc='lower right')
         plt.tight_layout()
-        # save plot
-        plt.savefig(f"{dirname}/sim_{plotinfo}_comparetrain.png", bbox_inches="tight")
+        plt.show()
     
     # plot validation loss over iterations for both models
     if lgbm_params["objective"] == "regression":
@@ -1281,7 +1284,7 @@ def test_gdro_simulation(
         plt.tight_layout()
         plt.grid()
         plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-        plt.savefig(f"{dirname}/sim_{plotinfo}_compareval.png", bbox_inches="tight")
+        plt.show()
     elif lgbm_params["objective"] == "binary":
         fig, axes = plt.subplots(1, 2, figsize=(16, 6))
         # binary logloss
@@ -1301,8 +1304,6 @@ def test_gdro_simulation(
         axes[1].grid()
         axes[1].legend(loc='lower right')
         plt.tight_layout()
-        # save plot
-        plt.savefig(f"{dirname}/sim_{plotinfo}_compareval.png", bbox_inches="tight")
 
     
     # plot weights at the last iteration over the row indices of the data
@@ -1313,8 +1314,7 @@ def test_gdro_simulation(
     plt.title(f"Weights at last iteration for GuidedDRO model\nrho = {rho}, k = {k}, n_obs = {kwargs['n_obs']}")
     plt.tight_layout()
     plt.axvline(x=source_prc["training_data"].shape[0] * kwargs.get("prop_shift", 0), color='red', linestyle='--')
-    plt.savefig(f"{dirname}/sim_{plotinfo}_finalweights.png", bbox_inches="tight")
-    
+    plt.show()    
     # extract a few observations randomly from the training data and plot their weight traces
     sample_indices = np.random.choice(
         range(source_prc["training_data"].shape[0]), 
@@ -1327,11 +1327,8 @@ def test_gdro_simulation(
     plt.ylabel("Weight")
     plt.title(f"Weight traces for {n_weightsamples} random rows\nrho = {rho}, k = {k}, n_obs = {kwargs['n_obs']}")
     plt.tight_layout()
-    # plt.legend()
-    plt.savefig(f"{dirname}/sim_{plotinfo}_weighttraces.png", bbox_inches="tight")
-    
-    print(f"GuidedDRO model fitted and diagnostic plots saved to {dirname}.")
-    
+    plt.show()
+        
     results = {
         "gdro_model": gdro_model,
         "lgbm_model": lgb_model,
