@@ -17,7 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 print("drawing panel of losses for concept shift simulation...")
 
 # load the losses dataframe
-losses_df = pl.read_csv(REPO_ROOT / "results/tables/simulations/losses_concept_shift.csv")
+losses_df = pl.read_csv(REPO_ROOT / "results" / "tables" / "simulations" / "losses_concept_shift.csv")
 
 guidance_names = {
     "ERM (LightGBM)": "ERM (LightGBM)",
@@ -28,7 +28,7 @@ guidance_names = {
 }
 
 # directory where to save the plots
-plotdir = REPO_ROOT / "results/figures/simulations/"
+plotdir = REPO_ROOT / "results" / "figures" / "simulations"
 
 # data for plots
 k_order = sorted(losses_df.filter(pl.col("k").is_not_null())["k"].unique().to_list())

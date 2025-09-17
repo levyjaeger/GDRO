@@ -1,7 +1,7 @@
 """
     author: jaegerl
     created: 2025-08-30
-    scope: figures for model fitting process
+    scope: figures for loss traces
 """
 
 import pandas as pd

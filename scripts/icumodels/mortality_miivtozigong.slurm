@@ -3,7 +3,7 @@
 #SBATCH --time=24:00:00
 #SBATCH --mem-per-cpu=8G
 #SBATCH --cpus-per-task=16
-#SBATCH --array=0-11
+#SBATCH --array=0-9
 #SBATCH --output=logs/mortality_miivtozigong/dro_model_%A_%a.out
 #SBATCH --error=logs/mortality_miivtozigong/dro_model_%A_%a.err
 
