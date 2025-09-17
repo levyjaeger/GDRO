@@ -201,7 +201,6 @@ plot_loss_rho(
     source="miiv",
     targets=["eicu", "hirid", "miiv", "zigong", "nwicu"],
     tabledir="04_tables/",
-    plotdir="05_icu_analyses/loss_vs_rho/",
     n_rounds=1000,
     ks=[1, 2],
     rhos=[0.01, 0.05, 0.1, 0.5, 1],

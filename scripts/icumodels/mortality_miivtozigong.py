@@ -17,9 +17,9 @@ n_rounds = 1000
 
 # define setting variables
 codebook_path = REPO_ROOT / "data" / "variables.tsv"
-plotdir = REPO_ROOT / "results" / "figures" / "icu" / "models_inspect" / f"{source}to{target}_{outcome}/"
-modeldir =  REPO_ROOT / "results" / "models" / f"/{source}to{target}_{outcome}/"
-tabledir = REPO_ROOT / "results" / "tables" / "icu" / f"{source}to{target}_{outcome}/"
+plotdir = REPO_ROOT / "results" / "figures" / "icu" / "models_inspect"
+modeldir =  REPO_ROOT / "results" / "models"
+tabledir = REPO_ROOT / "results" / "tables" / "icu"
 # IMPORTANT: change username!
 datadir = os.environ.get("TMPDIR", "/cluster/work/math/username/data")
 
